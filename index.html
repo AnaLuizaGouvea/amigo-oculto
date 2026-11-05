@@ -47,6 +47,9 @@ ul.envios li{display:flex;align-items:center;justify-content:space-between;gap:1
   padding:.8rem 0;border-bottom:1px solid var(--linha)}
 ul.envios li.enviado .nome{text-decoration:line-through;color:var(--suave)}
 ul.envios .botao{padding:.55rem 1rem;font-size:.95rem;background:var(--pinho);color:var(--papel)}
+ul.envios .marcar{padding:.5rem .8rem;font-size:.85rem;background:transparent;color:var(--tinta);border:1px solid var(--linha)}
+.envio-acoes{display:flex;align-items:center;justify-content:flex-end;gap:.5rem;flex-wrap:wrap}
+.status-envio{font-size:.85rem;color:var(--suave);min-width:5.5rem}
 [hidden]{display:none!important}
 .tamanhos{display:inline-block;text-align:left;margin:1rem 0}
 .tamanhos ul{margin:.25rem 0;padding-left:1.25rem}
@@ -83,19 +86,21 @@ ul.envios .botao{padding:.55rem 1rem;font-size:.95rem;background:var(--pinho);co
 
   <div id="etapaCadastro">
     <label for="titulo">Nome do evento</label>
-    <input id="titulo" value="Amigo Oculto 2026">
+    <input id="titulo" value="Amigo Oculto 2026" maxlength="80">
     <label for="lista">Participantes: um por linha, no formato <em>Nome, telefone, tamanhos…</em></label>
     <textarea id="lista" placeholder="Maria, (11) 98765-4321, Blusa M, Calça 38, Calçado 35&#10;João, 11 91234-5678, Camiseta G, Calçado 42&#10;Carla, +55 21 99876-5432"></textarea>
     <p class="suave">Os tamanhos são opcionais; separe cada um por vírgula.</p>
     <label for="evento">Detalhes do evento (opcional)</label>
-    <input id="evento" placeholder="Ex.: dia 20/12, valor até R$ 100">
+    <input id="evento" maxlength="200" placeholder="Ex.: dia 20/12, valor até R$ 100">
     <div class="acoes"><button id="sortear">Sortear</button></div>
     <p id="erro" class="erro" role="alert"></p>
   </div>
 
   <div id="etapaEnvio" hidden>
     <h2>Sorteio feito. Envie para cada pessoa</h2>
-    <p class="suave">Cada botão abre o WhatsApp com a mensagem pronta. É só apertar enviar.</p>
+    <p class="suave">Abra o WhatsApp para cada participante e envie a mensagem manualmente. Depois, marque o envio como concluído.</p>
+    <p id="resumoEnvios" class="aviso" aria-live="polite"></p>
+    <div class="aviso">Atenção: os links contêm o resultado codificado, mas não criptografado. Quem tiver acesso ao link poderá descobrir o resultado. Sem um backend, também não é possível invalidar links antigos.</div>
     <ul id="envios" class="envios"></ul>
     <div class="acoes"><button id="refazer" class="secundario">Refazer sorteio</button></div>
   </div>
@@ -128,7 +133,7 @@ ul.envios .botao{padding:.55rem 1rem;font-size:.95rem;background:var(--pinho);co
 
 <script>
 /* ---------- núcleo (sem DOM) ---------- */
-const CHAVE = "amigo-oculto-v1"; // embaralha o texto para não ficar legível no link
+const CHAVE = "amigo-oculto-v1"; // ofuscação simples; NÃO é criptografia nem proteção de acesso
 
 function aleatorio(max){ // inteiro em [0, max)
   const buf = new Uint32Array(1), limite = Math.floor(0x100000000 / max) * max;
@@ -145,23 +150,51 @@ function sortear(pessoas){
 }
 
 function normalizarTelefone(t){
-  let d = String(t).replace(/\D/g, "").replace(/^0+/, "");
-  if (d.length === 10 || d.length === 11) d = "55" + d; // número brasileiro sem DDI
+  const original = String(t).trim();
+  // Aceita apenas dígitos e separadores comuns; '+' só pode aparecer no início.
+  if (!original || !/^\+?[\d\s().-]+$/.test(original)) return null;
+  const internacional = original.startsWith("+");
+  let d = original.replace(/\D/g, "");
+  if (!internacional) {
+    d = d.replace(/^0+/, "");
+    if (d.length === 10 || d.length === 11) d = "55" + d; // número brasileiro sem DDI
+  }
   return d.length >= 11 && d.length <= 15 ? d : null;
 }
 
+function chaveNome(nome){
+  return nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR").replace(/\s+/g, " ").trim();
+}
+
 function lerLista(texto){
-  const pessoas = [], erros = [], vistos = new Set();
+  const pessoas = [], erros = [], nomesVistos = new Set(), telefonesVistos = new Set();
   texto.split(/\r?\n/).forEach((linha, i) => {
     if (!linha.trim()) return;
     const partes = linha.split(",").map(x => x.trim());
     const nome = partes[0] || "";
     const tel = partes.length < 2 ? null : normalizarTelefone(partes[1]);
     const tamanhos = partes.slice(2).filter(Boolean);
-    if (!nome || !tel) { erros.push(`Linha ${i + 1}: use o formato “Nome, telefone, tamanhos…” com DDD.`); return; }
-    const chave = nome.toLocaleLowerCase("pt-BR");
-    if (vistos.has(chave)) { erros.push(`Linha ${i + 1}: “${nome}” aparece mais de uma vez.`); return; }
-    vistos.add(chave); pessoas.push({ nome, tel, tamanhos });
+    if (!nome || nome.length > 80 || !tel) {
+      erros.push(`Linha ${i + 1}: informe um nome (até 80 caracteres) e um telefone válido com DDD.`);
+      return;
+    }
+    const idNome = chaveNome(nome);
+    if (nomesVistos.has(idNome)) {
+      erros.push(`Linha ${i + 1}: “${nome}” aparece mais de uma vez.`);
+      return;
+    }
+    if (telefonesVistos.has(tel)) {
+      erros.push(`Linha ${i + 1}: o telefone de “${nome}” já foi informado para outro participante.`);
+      return;
+    }
+    if (tamanhos.some(t => t.length > 120)) {
+      erros.push(`Linha ${i + 1}: cada informação de tamanho deve ter no máximo 120 caracteres.`);
+      return;
+    }
+    nomesVistos.add(idNome);
+    telefonesVistos.add(tel);
+    pessoas.push({ nome, tel, tamanhos });
   });
   if (!erros.length && pessoas.length < 3) erros.push("O sorteio precisa de pelo menos 3 participantes.");
   return { pessoas, erros };
@@ -214,35 +247,73 @@ if (typeof document !== "undefined") {
     $("organizador").hidden = false;
     if (location.protocol === "file:") $("avisoArquivo").hidden = false;
 
-    const salvar = v => { try { localStorage.setItem("ao-sorteio", JSON.stringify(v)); } catch {} };
+    const salvar = v => { try { localStorage.setItem("ao-sorteio", JSON.stringify(v)); return true; } catch { return false; } };
     const carregar = () => { try { return JSON.parse(localStorage.getItem("ao-sorteio")); } catch { return null; } };
 
     function mostrarEnvios(estado){
+      // Compatibilidade com sorteios salvos por versões anteriores.
+      if (!Array.isArray(estado.enviados)) estado.enviados = [];
+      estado.pares.forEach((_, i) => { estado.enviados[i] = Boolean(estado.enviados[i]); });
       const ul = $("envios"); ul.innerHTML = "";
       estado.pares.forEach((par, i) => {
         const li = document.createElement("li");
         if (estado.enviados[i]) li.classList.add("enviado");
         const n = document.createElement("span"); n.className = "nome"; n.textContent = par.de.nome;
-        const a = document.createElement("a"); a.className = "botao"; a.target = "_blank"; a.rel = "noopener";
+        const acoes = document.createElement("div"); acoes.className = "envio-acoes";
+        const status = document.createElement("span"); status.className = "status-envio";
+        status.textContent = estado.enviados[i] ? "Concluído" : "Pendente";
+        const a = document.createElement("a"); a.className = "botao"; a.target = "_blank"; a.rel = "noopener noreferrer";
         a.href = linkWhatsApp(par, base, estado.evento, estado.titulo);
-        a.textContent = estado.enviados[i] ? "Enviar de novo" : "Enviar no WhatsApp";
-        a.onclick = () => { estado.enviados[i] = true; salvar(estado); li.classList.add("enviado"); a.textContent = "Enviar de novo"; };
-        li.append(n, a); ul.append(li);
+        a.textContent = "Abrir WhatsApp";
+        const marcar = document.createElement("button"); marcar.type = "button"; marcar.className = "marcar";
+        marcar.textContent = estado.enviados[i] ? "Desmarcar" : "Marcar como enviado";
+        marcar.setAttribute("aria-pressed", String(estado.enviados[i]));
+        marcar.onclick = () => {
+          estado.enviados[i] = !estado.enviados[i];
+          salvar(estado);
+          li.classList.toggle("enviado", estado.enviados[i]);
+          status.textContent = estado.enviados[i] ? "Concluído" : "Pendente";
+          marcar.textContent = estado.enviados[i] ? "Desmarcar" : "Marcar como enviado";
+          marcar.setAttribute("aria-pressed", String(estado.enviados[i]));
+          atualizarResumo(estado);
+        };
+        acoes.append(status, a, marcar);
+        li.append(n, acoes); ul.append(li);
       });
+      atualizarResumo(estado);
       $("etapaCadastro").hidden = true; $("etapaEnvio").hidden = false;
+    }
+
+    function atualizarResumo(estado){
+      const total = estado.pares.length;
+      const concluidos = estado.enviados.filter(Boolean).length;
+      $("resumoEnvios").textContent = `${concluidos} de ${total} mensagens marcadas como enviadas. Abra cada conversa, envie a mensagem no WhatsApp e depois marque como concluída.`;
     }
 
     $("sortear").onclick = () => {
       const { pessoas, erros } = lerLista($("lista").value);
       $("erro").textContent = erros.join(" ");
       if (erros.length) return;
-      const estado = { pares: sortear(pessoas), titulo: $("titulo").value.trim(), evento: $("evento").value.trim(),
-                       enviados: [], lista: $("lista").value };
-      salvar(estado); mostrarEnvios(estado);
+      const titulo = $("titulo").value.trim() || "Amigo Oculto";
+      const evento = $("evento").value.trim();
+      if (titulo.length > 80 || evento.length > 200) {
+        $("erro").textContent = "O nome do evento deve ter até 80 caracteres e os detalhes até 200 caracteres.";
+        return;
+      }
+      if (location.protocol === "file:") {
+        $("erro").textContent = "Antes de sortear, publique esta página na web (GitHub Pages ou Netlify) para gerar links que os participantes consigam abrir.";
+        return;
+      }
+      const estado = { pares: sortear(pessoas), titulo, evento, enviados: [], lista: $("lista").value };
+      if (!salvar(estado)) {
+        $("erro").textContent = "Não foi possível salvar o sorteio neste navegador. Verifique as configurações de armazenamento.";
+        return;
+      }
+      mostrarEnvios(estado);
     };
 
     $("refazer").onclick = () => {
-      if (!confirm("Refazer o sorteio? Os links já enviados deixarão de valer para o novo resultado.")) return;
+      if (!confirm("Refazer o sorteio? Atenção: os links gerados anteriormente continuarão funcionando e revelarão o resultado antigo. Sem um backend, não é possível invalidá-los. Deseja continuar?")) return;
       const anterior = carregar();
       try { localStorage.removeItem("ao-sorteio"); } catch {}
       if (anterior) { $("lista").value = anterior.lista || ""; $("evento").value = anterior.evento || ""; $("titulo").value = anterior.titulo || $("titulo").value; }
@@ -250,7 +321,7 @@ if (typeof document !== "undefined") {
     };
 
     const salvo = carregar();
-    if (salvo && salvo.pares) mostrarEnvios(salvo);
+    if (salvo && Array.isArray(salvo.pares) && salvo.pares.length >= 3) mostrarEnvios(salvo);
   }
 }
 </script>
