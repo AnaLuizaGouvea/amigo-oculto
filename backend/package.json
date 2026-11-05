@@ -1,0 +1,8 @@
+{
+  "name": "amigo-oculto-whatsapp-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backend mínimo para envio de mensagens via WhatsApp Cloud API oficial",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=20" }
+}
