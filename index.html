@@ -87,9 +87,9 @@ ul.envios .marcar{padding:.5rem .8rem;font-size:.85rem;background:transparent;co
   <div id="etapaCadastro">
     <label for="titulo">Nome do evento</label>
     <input id="titulo" value="Amigo Oculto 2026" maxlength="80">
-    <label for="lista">Participantes: um por linha, no formato <em>Nome, telefone, tamanhos…</em></label>
-    <textarea id="lista" placeholder="Maria, (11) 98765-4321, Blusa M, Calça 38, Calçado 35&#10;João, 11 91234-5678, Camiseta G, Calçado 42&#10;Carla, +55 21 99876-5432"></textarea>
-    <p class="suave">Os tamanhos são opcionais; separe cada um por vírgula.</p>
+    <label for="lista">Participantes: um por linha, no formato <em>Nome, telefone, calça, blusa, sapato</em></label>
+    <textarea id="lista" placeholder="Maria, (11) 98765-4321, 38, M, 35&#10;João, 11 91234-5678, 42, G, 42&#10;Carla, +55 21 99876-5432, 40, P, 37"></textarea>
+    <p class="suave">Calça, blusa e sapato são obrigatórios. Informe os três tamanhos, nesta ordem, separados por vírgula.</p>
     <label for="evento">Detalhes do evento (opcional)</label>
     <input id="evento" maxlength="200" placeholder="Ex.: dia 20/12, valor até R$ 100">
     <div class="acoes"><button id="sortear">Sortear</button></div>
@@ -98,9 +98,22 @@ ul.envios .marcar{padding:.5rem .8rem;font-size:.85rem;background:transparent;co
 
   <div id="etapaEnvio" hidden>
     <h2>Sorteio feito. Envie para cada pessoa</h2>
-    <p class="suave">Abra o WhatsApp para cada participante e envie a mensagem manualmente. Depois, marque o envio como concluído.</p>
+    <p class="suave">Você pode enviar manualmente pelo WhatsApp ou configurar o envio automático pela API oficial.</p>
     <p id="resumoEnvios" class="aviso" aria-live="polite"></p>
-    <div class="aviso">Atenção: os links contêm o resultado codificado, mas não criptografado. Quem tiver acesso ao link poderá descobrir o resultado. Sem um backend, também não é possível invalidar links antigos.</div>
+    <div class="aviso">
+      <strong>Envio automático pela WhatsApp Cloud API</strong>
+      <label for="apiUrl">URL do backend</label>
+      <input id="apiUrl" type="url" placeholder="https://seu-backend.onrender.com" autocomplete="url">
+      <label for="apiKey">Chave administrativa do backend</label>
+      <input id="apiKey" type="password" placeholder="Informe a chave configurada no servidor" autocomplete="off">
+      <label style="display:flex;gap:.55rem;align-items:flex-start;font-weight:400;margin-top:1rem">
+        <input id="consentimento" type="checkbox" style="width:auto;margin-top:.25rem">
+        <span>Confirmo que todos os participantes forneceram seus números e autorizaram receber esta mensagem pelo WhatsApp.</span>
+      </label>
+      <div class="acoes"><button id="enviarAutomatico" type="button">Enviar automaticamente</button></div>
+      <p id="resultadoApi" role="status" aria-live="polite"></p>
+    </div>
+    <div class="aviso">Atenção: os links atuais contêm o resultado codificado, mas não criptografado. Quem tiver acesso ao link poderá descobrir o resultado. O envio automático exige um modelo de mensagem aprovado pela Meta e um backend configurado.</div>
     <ul id="envios" class="envios"></ul>
     <div class="acoes"><button id="refazer" class="secundario">Refazer sorteio</button></div>
   </div>
@@ -141,12 +154,19 @@ function aleatorio(max){ // inteiro em [0, max)
   return x % max;
 }
 
-// Embaralha e liga cada um ao próximo, formando um único ciclo:
-// ninguém tira a si mesmo e não há pares que se tiram mutuamente (com 3+ pessoas).
+// Sorteio aleatório tradicional: embaralha os destinatários e repete
+// o embaralhamento caso alguém tenha tirado a si mesmo. Pares recíprocos
+// (A tira B e B tira A) são permitidos, pois não há restrições adicionais.
 function sortear(pessoas){
-  const a = pessoas.slice();
-  for (let i = a.length - 1; i > 0; i--) { const j = aleatorio(i + 1); [a[i], a[j]] = [a[j], a[i]]; }
-  return a.map((p, k) => ({ de: p, para: a[(k + 1) % a.length] }));
+  let embaralhadas;
+  do {
+    embaralhadas = pessoas.slice();
+    for (let i = embaralhadas.length - 1; i > 0; i--) {
+      const j = aleatorio(i + 1);
+      [embaralhadas[i], embaralhadas[j]] = [embaralhadas[j], embaralhadas[i]];
+    }
+  } while (embaralhadas.some((p, i) => p === pessoas[i]));
+  return pessoas.map((p, i) => ({ de: p, para: embaralhadas[i] }));
 }
 
 function normalizarTelefone(t){
@@ -174,7 +194,20 @@ function lerLista(texto){
     const partes = linha.split(",").map(x => x.trim());
     const nome = partes[0] || "";
     const tel = partes.length < 2 ? null : normalizarTelefone(partes[1]);
-    const tamanhos = partes.slice(2).filter(Boolean);
+    if (partes.length !== 5) {
+      erros.push(`Linha ${i + 1}: informe exatamente 5 campos: nome, telefone, tamanho da calça, tamanho da blusa e tamanho do sapato.`);
+      return;
+    }
+    const valoresTamanho = partes.slice(2, 5);
+    if (valoresTamanho.some(t => !t)) {
+      erros.push(`Linha ${i + 1}: os tamanhos de calça, blusa e sapato são obrigatórios.`);
+      return;
+    }
+    const tamanhos = [
+      `Calça: ${valoresTamanho[0]}`,
+      `Blusa: ${valoresTamanho[1]}`,
+      `Sapato: ${valoresTamanho[2]}`
+    ];
     if (!nome || nome.length > 80 || !tel) {
       erros.push(`Linha ${i + 1}: informe um nome (até 80 caracteres) e um telefone válido com DDD.`);
       return;
@@ -213,11 +246,21 @@ function decodificar(tok){
   return JSON.parse(new TextDecoder().decode(b));
 }
 
+function linkEnvelope(par, base, evento, titulo){
+  return base + "#" + codificar({ ti: titulo || "", de: par.de.nome, para: par.para.nome,
+                                 tam: par.para.tamanhos || [], ev: evento || "" });
+}
+
 function linkWhatsApp(par, base, evento, titulo){
-  const url = base + "#" + codificar({ ti: titulo || "", de: par.de.nome, para: par.para.nome,
-                                       tam: par.para.tamanhos || [], ev: evento || "" });
-  const msg = `🎅 ${titulo || "Amigo Oculto"}\nOi, ${par.de.nome}! O sorteio saiu. 🎁\n` +
-              `Abra seu envelope (só você vê quem tirou):\n${url}`;
+  const url = linkEnvelope(par, base, evento, titulo);
+  // Mensagem sem emojis para evitar caracteres de substituição (�) em alguns
+  // aparelhos, navegadores ou versões do WhatsApp. O texto continua em UTF-8.
+  const msg = `AMIGO OCULTO | ${titulo || "Amigo Oculto"}\n\n` +
+              `Olá, ${par.de.nome}!\n\n` +
+              `O sorteio foi realizado. Para descobrir quem você tirou, acesse seu envelope pelo link abaixo:\n\n` +
+              `${url}\n\n` +
+              `Importante: não compartilhe este link, pois ele contém o resultado do seu sorteio.\n\n` +
+              `Boa diversão!`;
   return `https://wa.me/${par.de.tel}?text=${encodeURIComponent(msg)}`;
 }
 
@@ -287,8 +330,63 @@ if (typeof document !== "undefined") {
     function atualizarResumo(estado){
       const total = estado.pares.length;
       const concluidos = estado.enviados.filter(Boolean).length;
-      $("resumoEnvios").textContent = `${concluidos} de ${total} mensagens marcadas como enviadas. Abra cada conversa, envie a mensagem no WhatsApp e depois marque como concluída.`;
+      $("resumoEnvios").textContent = `${concluidos} de ${total} mensagens marcadas como enviadas manualmente.`;
     }
+
+    $("enviarAutomatico").onclick = async () => {
+      const estado = carregar();
+      const apiUrl = $("apiUrl").value.trim().replace(/\/$/, "");
+      const apiKey = $("apiKey").value;
+      const resultado = $("resultadoApi");
+      const botao = $("enviarAutomatico");
+      resultado.textContent = "";
+      if (!estado || !Array.isArray(estado.pares) || !estado.pares.length) {
+        resultado.textContent = "Não encontrei um sorteio salvo neste navegador.";
+        return;
+      }
+      if (!/^https:\/\//i.test(apiUrl)) {
+        resultado.textContent = "Informe a URL HTTPS do backend.";
+        return;
+      }
+      if (!apiKey) {
+        resultado.textContent = "Informe a chave administrativa configurada no backend.";
+        return;
+      }
+      if (!$("consentimento").checked) {
+        resultado.textContent = "É necessário confirmar a autorização de todos os participantes.";
+        return;
+      }
+      if (!confirm(`Enviar ${estado.pares.length} mensagens pelo WhatsApp? Cada participante receberá somente o próprio link.`)) return;
+
+      botao.disabled = true;
+      botao.textContent = "Enviando...";
+      resultado.textContent = "Solicitando os envios. Não feche esta página.";
+      try {
+        const participantes = estado.pares.map(par => ({
+          name: par.de.nome,
+          phone: par.de.tel,
+          eventTitle: estado.titulo || "Amigo Oculto",
+          link: linkEnvelope(par, base, estado.evento, estado.titulo)
+        }));
+        const response = await fetch(`${apiUrl}/api/send-draw`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Admin-Key": apiKey },
+          body: JSON.stringify({ confirmedConsent: true, participants: participantes })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || `Falha HTTP ${response.status}`);
+        resultado.textContent = `Processo concluído: ${data.sent} de ${data.total} mensagens aceitas pela API; ${data.failed} falharam. A aceitação pela API não confirma leitura pelo participante.`;
+        if (Array.isArray(data.results)) {
+          const falhas = data.results.filter(r => !r.sent);
+          if (falhas.length) resultado.textContent += " Falhas: " + falhas.map(r => `${r.name}: ${r.error}`).join(" | ");
+        }
+      } catch (error) {
+        resultado.textContent = `Não foi possível concluir o envio: ${error.message}`;
+      } finally {
+        botao.disabled = false;
+        botao.textContent = "Enviar automaticamente";
+      }
+    };
 
     $("sortear").onclick = () => {
       const { pessoas, erros } = lerLista($("lista").value);
@@ -304,7 +402,7 @@ if (typeof document !== "undefined") {
         $("erro").textContent = "Antes de sortear, publique esta página na web (GitHub Pages ou Netlify) para gerar links que os participantes consigam abrir.";
         return;
       }
-      const estado = { pares: sortear(pessoas), titulo, evento, enviados: [], lista: $("lista").value };
+      const estado = { formatoTamanhos: 2, pares: sortear(pessoas), titulo, evento, enviados: [], lista: $("lista").value };
       if (!salvar(estado)) {
         $("erro").textContent = "Não foi possível salvar o sorteio neste navegador. Verifique as configurações de armazenamento.";
         return;
@@ -321,7 +419,18 @@ if (typeof document !== "undefined") {
     };
 
     const salvo = carregar();
-    if (salvo && Array.isArray(salvo.pares) && salvo.pares.length >= 3) mostrarEnvios(salvo);
+    if (salvo && Array.isArray(salvo.pares) && salvo.pares.length >= 3) {
+      if (salvo.formatoTamanhos === 2) {
+        mostrarEnvios(salvo);
+      } else {
+        // Sorteios de versões anteriores podem não ter os três tamanhos obrigatórios.
+        // Mantém a lista para edição, mas não reapresenta esses dados como sorteio válido.
+        $("lista").value = salvo.lista || "";
+        $("titulo").value = salvo.titulo || $("titulo").value;
+        $("evento").value = salvo.evento || "";
+        $("erro").textContent = "Seu sorteio salvo foi criado em uma versão anterior. Confira a lista e informe, para cada participante, calça, blusa e sapato antes de realizar um novo sorteio.";
+      }
+    }
   }
 }
 </script>
