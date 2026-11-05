@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Amigo oculto</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --pinho:#1E4636; --papel:#EEF3EE; --tinta:#16261E; --suave:#55685D;
+  --fita:#B3261E; --ouro:#B98E2A; --linha:#C9D6CC; --campo:#FFFFFF;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --pinho:#8FC4A8; --papel:#0F1F18; --tinta:#E6EFE9; --suave:#9DB1A5;
+    --fita:#E2574C; --ouro:#E0B851; --linha:#2B4237; --campo:#16291F;
+    color-scheme: dark;
+  }
+}
+*{box-sizing:border-box}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html,body{margin:0}
+body{background:var(--papel);color:var(--tinta);
+  font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:38rem;margin:0 auto;padding:2.5rem 1.25rem 4rem}
+h1{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:800;
+  font-size:clamp(2.4rem,9vw,3.6rem);line-height:1;letter-spacing:-.02em;margin:0 0 .75rem;color:var(--pinho)}
+h2{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:500;font-size:1.35rem;margin:2rem 0 .5rem}
+p{margin:.4rem 0}
+.suave{color:var(--suave)}
+label{display:block;font-weight:600;margin:1.25rem 0 .35rem}
+textarea,input{width:100%;font:inherit;color:var(--tinta);background:var(--campo);
+  border:1.5px solid var(--linha);border-radius:10px;padding:.7rem .8rem}
+textarea{min-height:11rem;resize:vertical;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.95rem}
+textarea:focus,input:focus,button:focus-visible,a:focus-visible{outline:3px solid var(--ouro);outline-offset:2px}
+button,.botao{font:inherit;font-weight:700;border:0;border-radius:999px;padding:.8rem 1.4rem;
+  background:var(--fita);color:#fff;cursor:pointer;text-decoration:none;display:inline-block}
+button.secundario{background:transparent;color:var(--tinta);border:1.5px solid var(--linha)}
+.acoes{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1.25rem}
+.erro{color:var(--fita);font-weight:600;margin-top:.75rem}
+.aviso{border-left:4px solid var(--ouro);padding:.5rem .9rem;margin:1rem 0;background:var(--campo);border-radius:0 8px 8px 0}
+ul.envios{list-style:none;padding:0;margin:1rem 0}
+ul.envios li{display:flex;align-items:center;justify-content:space-between;gap:1rem;
+  padding:.8rem 0;border-bottom:1px solid var(--linha)}
+ul.envios li.enviado .nome{text-decoration:line-through;color:var(--suave)}
+ul.envios .botao{padding:.55rem 1rem;font-size:.95rem;background:var(--pinho);color:var(--papel)}
+ul.envios .marcar{padding:.5rem .8rem;font-size:.85rem;background:transparent;color:var(--tinta);border:1px solid var(--linha)}
+.envio-acoes{display:flex;align-items:center;justify-content:flex-end;gap:.5rem;flex-wrap:wrap}
+.status-envio{font-size:.85rem;color:var(--suave);min-width:5.5rem}
+[hidden]{display:none!important}
+.tamanhos{display:inline-block;text-align:left;margin:1rem 0}
+.tamanhos ul{margin:.25rem 0;padding-left:1.25rem}
+
+/* revelação */
+.envelope{margin:2rem auto 0;width:min(100%,22rem);aspect-ratio:3/2;position:relative;border:0;padding:0;
+  background:var(--pinho);border-radius:14px;cursor:pointer;overflow:hidden;display:block}
+.envelope::before{content:"";position:absolute;inset:0;background:
+  linear-gradient(90deg,transparent calc(50% - 14px),var(--fita) calc(50% - 14px),var(--fita) calc(50% + 14px),transparent calc(50% + 14px)),
+  linear-gradient(0deg,transparent calc(50% - 14px),var(--fita) calc(50% - 14px),var(--fita) calc(50% + 14px),transparent calc(50% + 14px))}
+.envelope span{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  background:var(--ouro);color:#1a1405;font-weight:800;padding:.5rem 1rem;border-radius:999px;white-space:nowrap}
+.revelado{text-align:center;margin-top:2rem}
+.revelado .alvo{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:800;color:var(--fita);
+  font-size:clamp(2.6rem,12vw,4.5rem);line-height:1.05;margin:.5rem 0;word-break:break-word}
+@media (prefers-reduced-motion:no-preference){
+  .revelado:not([hidden]) .alvo{animation:surge .6s cubic-bezier(.2,.9,.3,1.3)}
+  @keyframes surge{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
+}
+</style>
+</head>
+<body>
+<main>
+
+<!-- ===== MODO ORGANIZADOR ===== -->
+<section id="organizador" hidden>
+  <h1>Amigo oculto</h1>
+  <p class="suave">Você envia os links pelo WhatsApp, mas não vê quem tirou quem. Cada pessoa abre o próprio envelope.</p>
+
+  <div id="avisoArquivo" class="aviso" hidden>
+    Esta página está aberta como arquivo local. Para os links funcionarem no celular dos participantes,
+    publique-a na web (por exemplo, GitHub Pages ou Netlify) e abra por lá.
+  </div>
+
+  <div id="etapaCadastro">
+    <label for="titulo">Nome do evento</label>
+    <input id="titulo" value="Amigo Oculto 2026" maxlength="80">
+    <label for="lista">Participantes: um por linha, no formato <em>Nome, telefone, tamanhos…</em></label>
+    <textarea id="lista" placeholder="Maria, (11) 98765-4321, Blusa M, Calça 38, Calçado 35&#10;João, 11 91234-5678, Camiseta G, Calçado 42&#10;Carla, +55 21 99876-5432"></textarea>
+    <p class="suave">Os tamanhos são opcionais; separe cada um por vírgula.</p>
+    <label for="evento">Detalhes do evento (opcional)</label>
+    <input id="evento" maxlength="200" placeholder="Ex.: dia 20/12, valor até R$ 100">
+    <div class="acoes"><button id="sortear">Sortear</button></div>
+    <p id="erro" class="erro" role="alert"></p>
+  </div>
+
+  <div id="etapaEnvio" hidden>
+    <h2>Sorteio feito. Envie para cada pessoa</h2>
+    <p class="suave">Abra o WhatsApp para cada participante e envie a mensagem manualmente. Depois, marque o envio como concluído.</p>
+    <p id="resumoEnvios" class="aviso" aria-live="polite"></p>
+    <div class="aviso">Atenção: os links contêm o resultado codificado, mas não criptografado. Quem tiver acesso ao link poderá descobrir o resultado. Sem um backend, também não é possível invalidar links antigos.</div>
+    <ul id="envios" class="envios"></ul>
+    <div class="acoes"><button id="refazer" class="secundario">Refazer sorteio</button></div>
+  </div>
+</section>
+
+<!-- ===== MODO PARTICIPANTE ===== -->
+<section id="participante" hidden>
+  <h1 id="tituloRev">🎅 Amigo Oculto</h1>
+  <p id="saudacao"></p>
+  <p class="suave">Só abra o envelope se ninguém estiver olhando a tela.</p>
+  <button id="envelope" class="envelope" aria-label="Abrir envelope"><span>Abrir envelope</span></button>
+  <div id="revelado" class="revelado" hidden>
+    <p>Você tirou:</p>
+    <p id="alvo" class="alvo"></p>
+    <div id="blocoTamanhos" class="tamanhos" hidden>
+      <p><strong>Lista de tamanhos:</strong></p>
+      <ul id="tamanhos"></ul>
+    </div>
+    <p id="detalhes" class="suave"></p>
+    <p>Não conte para ninguém! 🤫</p>
+  </div>
+</section>
+
+<section id="invalido" hidden>
+  <h1>Link inválido</h1>
+  <p>Este link de amigo oculto está incompleto. Peça ao organizador para enviá-lo novamente.</p>
+</section>
+
+</main>
+
+<script>
+/* ---------- núcleo (sem DOM) ---------- */
+const CHAVE = "amigo-oculto-v1"; // ofuscação simples; NÃO é criptografia nem proteção de acesso
+
+function aleatorio(max){ // inteiro em [0, max)
+  const buf = new Uint32Array(1), limite = Math.floor(0x100000000 / max) * max;
+  let x; do { crypto.getRandomValues(buf); x = buf[0]; } while (x >= limite);
+  return x % max;
+}
+
+// Embaralha e liga cada um ao próximo, formando um único ciclo:
+// ninguém tira a si mesmo e não há pares que se tiram mutuamente (com 3+ pessoas).
+function sortear(pessoas){
+  const a = pessoas.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = aleatorio(i + 1); [a[i], a[j]] = [a[j], a[i]]; }
+  return a.map((p, k) => ({ de: p, para: a[(k + 1) % a.length] }));
+}
+
+function normalizarTelefone(t){
+  const original = String(t).trim();
+  // Aceita apenas dígitos e separadores comuns; '+' só pode aparecer no início.
+  if (!original || !/^\+?[\d\s().-]+$/.test(original)) return null;
+  const internacional = original.startsWith("+");
+  let d = original.replace(/\D/g, "");
+  if (!internacional) {
+    d = d.replace(/^0+/, "");
+    if (d.length === 10 || d.length === 11) d = "55" + d; // número brasileiro sem DDI
+  }
+  return d.length >= 11 && d.length <= 15 ? d : null;
+}
+
+function chaveNome(nome){
+  return nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR").replace(/\s+/g, " ").trim();
+}
+
+function lerLista(texto){
+  const pessoas = [], erros = [], nomesVistos = new Set(), telefonesVistos = new Set();
+  texto.split(/\r?\n/).forEach((linha, i) => {
+    if (!linha.trim()) return;
+    const partes = linha.split(",").map(x => x.trim());
+    const nome = partes[0] || "";
+    const tel = partes.length < 2 ? null : normalizarTelefone(partes[1]);
+    const tamanhos = partes.slice(2).filter(Boolean);
+    if (!nome || nome.length > 80 || !tel) {
+      erros.push(`Linha ${i + 1}: informe um nome (até 80 caracteres) e um telefone válido com DDD.`);
+      return;
+    }
+    const idNome = chaveNome(nome);
+    if (nomesVistos.has(idNome)) {
+      erros.push(`Linha ${i + 1}: “${nome}” aparece mais de uma vez.`);
+      return;
+    }
+    if (telefonesVistos.has(tel)) {
+      erros.push(`Linha ${i + 1}: o telefone de “${nome}” já foi informado para outro participante.`);
+      return;
+    }
+    if (tamanhos.some(t => t.length > 120)) {
+      erros.push(`Linha ${i + 1}: cada informação de tamanho deve ter no máximo 120 caracteres.`);
+      return;
+    }
+    nomesVistos.add(idNome);
+    telefonesVistos.add(tel);
+    pessoas.push({ nome, tel, tamanhos });
+  });
+  if (!erros.length && pessoas.length < 3) erros.push("O sorteio precisa de pelo menos 3 participantes.");
+  return { pessoas, erros };
+}
+
+function codificar(obj){
+  const b = new TextEncoder().encode(JSON.stringify(obj)), k = new TextEncoder().encode(CHAVE);
+  const x = b.map((v, i) => v ^ k[i % k.length]);
+  let s = ""; x.forEach(v => s += String.fromCharCode(v));
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function decodificar(tok){
+  const s = atob(tok.replace(/-/g, "+").replace(/_/g, "/"));
+  const k = new TextEncoder().encode(CHAVE);
+  const b = Uint8Array.from(s, (c, i) => c.charCodeAt(0) ^ k[i % k.length]);
+  return JSON.parse(new TextDecoder().decode(b));
+}
+
+function linkWhatsApp(par, base, evento, titulo){
+  const url = base + "#" + codificar({ ti: titulo || "", de: par.de.nome, para: par.para.nome,
+                                       tam: par.para.tamanhos || [], ev: evento || "" });
+  const msg = `🎅 ${titulo || "Amigo Oculto"}\nOi, ${par.de.nome}! O sorteio saiu. 🎁\n` +
+              `Abra seu envelope (só você vê quem tirou):\n${url}`;
+  return `https://wa.me/${par.de.tel}?text=${encodeURIComponent(msg)}`;
+}
+
+if (typeof module !== "undefined") { module.exports = { sortear, normalizarTelefone, lerLista, codificar, decodificar, linkWhatsApp }; }
+
+/* ---------- interface ---------- */
+if (typeof document !== "undefined") {
+  const $ = id => document.getElementById(id);
+  const base = location.origin + location.pathname;
+  const tok = location.hash.slice(1);
+
+  if (tok) {
+    try {
+      const d = decodificar(tok);
+      const ti = d.ti || "Amigo Oculto";
+      document.title = ti;
+      $("tituloRev").textContent = "🎅 " + ti;
+      $("saudacao").textContent = `Olá, ${d.de}! Seu amigo oculto foi sorteado!`;
+      $("alvo").textContent = `${d.para}! 🎁`;
+      (d.tam || []).forEach(t => { const li = document.createElement("li"); li.textContent = t; $("tamanhos").append(li); });
+      $("blocoTamanhos").hidden = !(d.tam && d.tam.length);
+      $("detalhes").textContent = d.ev;
+      $("participante").hidden = false;
+      $("envelope").onclick = () => { $("envelope").hidden = true; $("revelado").hidden = false; };
+    } catch { $("invalido").hidden = false; }
+  } else {
+    $("organizador").hidden = false;
+    if (location.protocol === "file:") $("avisoArquivo").hidden = false;
+
+    const salvar = v => { try { localStorage.setItem("ao-sorteio", JSON.stringify(v)); return true; } catch { return false; } };
+    const carregar = () => { try { return JSON.parse(localStorage.getItem("ao-sorteio")); } catch { return null; } };
+
+    function mostrarEnvios(estado){
+      // Compatibilidade com sorteios salvos por versões anteriores.
+      if (!Array.isArray(estado.enviados)) estado.enviados = [];
+      estado.pares.forEach((_, i) => { estado.enviados[i] = Boolean(estado.enviados[i]); });
+      const ul = $("envios"); ul.innerHTML = "";
+      estado.pares.forEach((par, i) => {
+        const li = document.createElement("li");
+        if (estado.enviados[i]) li.classList.add("enviado");
+        const n = document.createElement("span"); n.className = "nome"; n.textContent = par.de.nome;
+        const acoes = document.createElement("div"); acoes.className = "envio-acoes";
+        const status = document.createElement("span"); status.className = "status-envio";
+        status.textContent = estado.enviados[i] ? "Concluído" : "Pendente";
+        const a = document.createElement("a"); a.className = "botao"; a.target = "_blank"; a.rel = "noopener noreferrer";
+        a.href = linkWhatsApp(par, base, estado.evento, estado.titulo);
+        a.textContent = "Abrir WhatsApp";
+        const marcar = document.createElement("button"); marcar.type = "button"; marcar.className = "marcar";
+        marcar.textContent = estado.enviados[i] ? "Desmarcar" : "Marcar como enviado";
+        marcar.setAttribute("aria-pressed", String(estado.enviados[i]));
+        marcar.onclick = () => {
+          estado.enviados[i] = !estado.enviados[i];
+          salvar(estado);
+          li.classList.toggle("enviado", estado.enviados[i]);
+          status.textContent = estado.enviados[i] ? "Concluído" : "Pendente";
+          marcar.textContent = estado.enviados[i] ? "Desmarcar" : "Marcar como enviado";
+          marcar.setAttribute("aria-pressed", String(estado.enviados[i]));
+          atualizarResumo(estado);
+        };
+        acoes.append(status, a, marcar);
+        li.append(n, acoes); ul.append(li);
+      });
+      atualizarResumo(estado);
+      $("etapaCadastro").hidden = true; $("etapaEnvio").hidden = false;
+    }
+
+    function atualizarResumo(estado){
+      const total = estado.pares.length;
+      const concluidos = estado.enviados.filter(Boolean).length;
+      $("resumoEnvios").textContent = `${concluidos} de ${total} mensagens marcadas como enviadas. Abra cada conversa, envie a mensagem no WhatsApp e depois marque como concluída.`;
+    }
+
+    $("sortear").onclick = () => {
+      const { pessoas, erros } = lerLista($("lista").value);
+      $("erro").textContent = erros.join(" ");
+      if (erros.length) return;
+      const titulo = $("titulo").value.trim() || "Amigo Oculto";
+      const evento = $("evento").value.trim();
+      if (titulo.length > 80 || evento.length > 200) {
+        $("erro").textContent = "O nome do evento deve ter até 80 caracteres e os detalhes até 200 caracteres.";
+        return;
+      }
+      if (location.protocol === "file:") {
+        $("erro").textContent = "Antes de sortear, publique esta página na web (GitHub Pages ou Netlify) para gerar links que os participantes consigam abrir.";
+        return;
+      }
+      const estado = { pares: sortear(pessoas), titulo, evento, enviados: [], lista: $("lista").value };
+      if (!salvar(estado)) {
+        $("erro").textContent = "Não foi possível salvar o sorteio neste navegador. Verifique as configurações de armazenamento.";
+        return;
+      }
+      mostrarEnvios(estado);
+    };
+
+    $("refazer").onclick = () => {
+      if (!confirm("Refazer o sorteio? Atenção: os links gerados anteriormente continuarão funcionando e revelarão o resultado antigo. Sem um backend, não é possível invalidá-los. Deseja continuar?")) return;
+      const anterior = carregar();
+      try { localStorage.removeItem("ao-sorteio"); } catch {}
+      if (anterior) { $("lista").value = anterior.lista || ""; $("evento").value = anterior.evento || ""; $("titulo").value = anterior.titulo || $("titulo").value; }
+      $("etapaEnvio").hidden = true; $("etapaCadastro").hidden = false;
+    };
+
+    const salvo = carregar();
+    if (salvo && Array.isArray(salvo.pares) && salvo.pares.length >= 3) mostrarEnvios(salvo);
+  }
+}
+</script>
+</body>
+</html>
