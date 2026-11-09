@@ -105,7 +105,7 @@ ul.envios .marcar{padding:.5rem .8rem;font-size:.85rem;background:transparent;co
       <strong>Envio automático pelo Gmail</strong>
       <p>Informe o ID do cliente OAuth criado no Google Cloud. Na primeira utilização, o organizador autorizará o envio pela própria conta Gmail.</p>
       <label for="googleClientId">ID do cliente OAuth (aplicativo da Web)</label>
-      <input id="googleClientId" type="text" placeholder="000000000000-xxxxxxxx.apps.googleusercontent.com" autocomplete="off">
+      <input id="googleClientId" type="text" value="47383074766-gltnmtskqe9nnae6ckdctqion11ttq58.apps.googleusercontent.com" autocomplete="off">
       <p class="suave">O ID do cliente é público e pode ficar no navegador. Não informe senha, token ou client secret aqui.</p>
       <label style="display:flex;gap:.55rem;align-items:flex-start;font-weight:400;margin-top:1rem">
         <input id="consentimento" type="checkbox" style="width:auto;margin-top:.25rem">
@@ -279,7 +279,7 @@ if (typeof document !== "undefined") {
     const carregar = () => { try { return JSON.parse(localStorage.getItem("ao-sorteio")); } catch { return null; } };
 
     let gmailAccessToken = null;
-    try { $("googleClientId").value = localStorage.getItem("google-client-id") || ""; } catch {}
+    try { $("googleClientId").value = localStorage.getItem("google-client-id") || "47383074766-gltnmtskqe9nnae6ckdctqion11ttq58.apps.googleusercontent.com"; } catch { $("googleClientId").value = "47383074766-gltnmtskqe9nnae6ckdctqion11ttq58.apps.googleusercontent.com"; }
     $("googleClientId").addEventListener("change", () => {
       try { localStorage.setItem("google-client-id", $("googleClientId").value.trim()); } catch {}
     });
