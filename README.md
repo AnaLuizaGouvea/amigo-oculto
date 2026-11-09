@@ -115,7 +115,7 @@ Cada pessoa receberá uma mensagem separada, sem os demais participantes em cóp
 
 Na lista **Entrega dos resultados**, cada participante terá o botão **Enviar link pelo WhatsApp**. Ao clicar, o navegador abrirá o WhatsApp com uma mensagem pronta e o link individual daquele participante. O organizador deve selecionar o contato correto e enviar manualmente. Não é necessário cadastrar telefone dos participantes.
 
-O link abre a página publicada diretamente no resultado individual. Envie-o somente ao participante correspondente e não o compartilhe em grupos. A codificação do conteúdo do link serve apenas para transportar os dados no endereço; não é criptografia nem proteção contra alguém que obtenha o link.
+O link abre a página publicada diretamente no resultado individual. Envie-o somente ao participante correspondente e não o compartilhe em grupos. A codificação do conteúdo do link serve apenas para transportar os dados no endereço; não é criptografia nem proteção contra alguém que obtenha o link. 
 
 ## Custos e limites
 
