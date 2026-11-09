@@ -1,148 +1,140 @@
-# Amigo Oculto
+# Amigo Oculto — envio automático pelo Gmail
 
-Aplicação web simples para organizar um sorteio de amigo oculto,
-consultar os resultados por envelopes individuais e compartilhar cada
-resultado pelo WhatsApp.
+Aplicação estática para realizar o sorteio de amigo oculto e enviar um e-mail individual a cada participante usando a conta Gmail do organizador.
 
 ## Funcionalidades
 
--   Cadastro dos participantes por uma lista de texto.
--   Validação dos dados dos participantes, incluindo nome, telefone e
-    tamanhos de roupa.
--   Sorteio aleatório sem que alguém tire a si mesmo.
--   Cada participante acessa somente o próprio resultado por meio de um
-    link individual.
--   Envio dos links pelo WhatsApp.
--   Possibilidade de configurar o envio automático por meio da
-    **WhatsApp Cloud API oficial**, usando um backend separado.
+- Cadastro de participantes com nome, e-mail, tamanho da calça, blusa e calçado.
+- Validação de e-mails duplicados e campos obrigatórios.
+- Sorteio aleatório sem que alguém tire a si mesmo.
+- Pares recíprocos são permitidos (A pode tirar B e B pode tirar A).
+- Envio de mensagens individuais pela Gmail API.
+- Cada mensagem informa o nome sorteado e os três tamanhos da pessoa sorteada.
+- Acompanhamento de mensagens enviadas, pendentes e com falha.
+- Possibilidade de tentar novamente somente os envios que falharam.
 
-> **Importante:** o envio manual pelo WhatsApp funciona sem backend. O
-> envio automático depende da configuração e publicação do backend e da
-> configuração da conta da Meta.
+## Estrutura
 
-## Estrutura do projeto
-
-Uma organização sugerida para o repositório é:
-
-``` text
+```text
 amigo-oculto/
 ├── index.html
-├── README.md
-└── backend/
-    ├── server.js
-    ├── package.json
-    ├── .env.example
-    ├── render.yaml
-    └── README.md
+└── README.md
 ```
 
--   `index.html`: aplicação web (HTML, CSS e JavaScript).
--   `backend/`: serviço Node.js responsável por encaminhar os envios à
-    WhatsApp Cloud API.
--   `backend/README.md`: instruções específicas para configurar e
-    publicar o backend.
+O projeto não precisa de backend, Firebase, Cloudflare Workers ou serviço de e-mail de terceiros. O navegador solicita autorização do organizador ao Google e chama a Gmail API diretamente.
 
-Se os arquivos do backend estiverem em outro diretório, ajuste os
-caminhos conforme a estrutura real do repositório.
+## Requisitos
 
-## Executar localmente
+- Uma conta Gmail para ser usada pelo organizador.
+- Um projeto no Google Cloud.
+- Gmail API habilitada.
+- Um OAuth Client ID do tipo **Web application**.
+- O site publicado em HTTPS, por exemplo, no GitHub Pages.
 
-Como o frontend é uma página estática, basta abrir `index.html` em um
-navegador.
+## Configuração do Google Cloud
 
-Para testar por um servidor local, também é possível usar a extensão
-Live Server do VS Code ou outro servidor HTTP estático.
+### 1. Criar projeto e habilitar Gmail API
 
-## Publicar o frontend no GitHub Pages
+1. Acesse https://console.cloud.google.com/.
+2. Crie um projeto, por exemplo `amigo-oculto-gmail`.
+3. Abra **APIs e serviços → Biblioteca**.
+4. Pesquise por **Gmail API** e clique em **Ativar**.
 
-1.  Envie `index.html` e este `README.md` para a raiz do repositório
-    GitHub.
-2.  No GitHub, acesse **Settings → Pages**.
-3.  Em **Build and deployment**, selecione a opção de publicação a
-    partir de uma branch.
-4.  Escolha a branch principal (por exemplo, `main`) e a pasta
-    `/ (root)`.
-5.  Salve e aguarde a publicação.
-6.  Acesse a URL apresentada pelo GitHub Pages.
+### 2. Configurar a tela de consentimento OAuth
 
-O GitHub Pages hospeda somente o frontend estático. Ele não executa o
-servidor Node.js do backend.
+Na seção **Google Auth Platform**:
 
-## Envio manual pelo WhatsApp
+1. Em **Branding**, informe o nome do aplicativo e um e-mail de suporte.
+2. Em **Audience**, escolha **External** se estiver usando uma conta Gmail pessoal.
+3. Mantenha o aplicativo em **Testing** para uso privado.
+4. Em **Test users**, adicione o endereço Gmail do organizador — a mesma conta que fará os envios.
+5. Em **Data Access**, adicione somente este escopo:
 
-O modo manual não exige configuração de API:
+```text
+https://www.googleapis.com/auth/gmail.send
+```
 
-1.  Cadastre os participantes e realize o sorteio.
-2.  Acesse a área de envio.
-3.  Abra o link de WhatsApp de cada participante.
-4.  Confira a mensagem e conclua o envio no próprio WhatsApp.
+Esse escopo permite enviar e-mails em nome da conta autorizada. O aplicativo não solicita acesso para ler a caixa de entrada.
 
-## Envio automático --- WhatsApp Cloud API
+Enquanto o aplicativo estiver em modo de teste, somente os usuários adicionados como test users poderão autorizar o acesso. O Google pode exibir um aviso de aplicativo não verificado; isso é esperado durante o teste de um aplicativo privado que ainda não passou pela verificação. Não adicione pessoas que não sejam necessárias.
 
-O envio automático requer um backend Node.js publicado em um serviço de
-hospedagem compatível.
+### 3. Criar o OAuth Client ID
 
-Em linhas gerais, será necessário:
+1. Na seção **Google Auth Platform → Clients**, clique em **Create client**.
+2. Escolha **Web application**.
+3. Dê um nome, por exemplo `Amigo Oculto GitHub Pages`.
+4. Em **Authorized JavaScript origins**, adicione a origem do site.
 
-1.  Configurar um aplicativo no Meta for Developers e adicionar o
-    produto WhatsApp.
-2.  Configurar uma conta do WhatsApp Business Platform e um número
-    remetente.
-3.  Obter o `Phone Number ID` e um token com as permissões necessárias.
-4.  Criar e obter aprovação da Meta para o modelo de mensagem utilizado
-    pelo projeto.
-5.  Publicar o conteúdo da pasta `backend/` em um host Node.js.
-6.  Configurar as variáveis de ambiente do backend.
-7.  Informar no frontend a URL do backend e a chave administrativa.
+Exemplos:
 
-Consulte [`backend/README.md`](backend/README.md) para os passos
-detalhados e os nomes das variáveis.
+- GitHub Pages: `https://SEU-USUARIO.github.io`
+- Domínio próprio: `https://www.seudominio.com`
+- Teste local: `http://localhost:8000`
 
-### Segurança
+Use somente a origem (protocolo + domínio + porta, se houver), sem o caminho do repositório. Por exemplo, para `https://seu-usuario.github.io/amigo-oculto/`, a origem é `https://seu-usuario.github.io`.
 
--   **Nunca** coloque o token de acesso da Meta no `index.html`, no
-    JavaScript do navegador ou em arquivos versionados.
--   Configure os segredos diretamente no painel do serviço de
-    hospedagem.
--   Não publique o arquivo `.env`.
--   Restrinja a origem permitida (`ALLOWED_ORIGIN`) ao domínio do
-    frontend.
--   Use uma chave administrativa longa e aleatória.
--   Faça testes com números controlados antes de enviar mensagens aos
-    participantes.
+5. Crie a credencial e copie o **Client ID**.
 
-### Consentimento e regras da Meta
+Não coloque um Client Secret no HTML. Aplicações executadas inteiramente no navegador não conseguem manter segredos. O código utiliza apenas o Client ID público e a autorização OAuth do Google.
 
-Envie mensagens somente a participantes que forneceram seus números e
-autorizaram o recebimento. Mensagens iniciadas pela empresa precisam
-utilizar um modelo aprovado pela Meta, conforme as regras vigentes do
-WhatsApp Business Platform. A categoria do modelo e os custos são
-definidos pela Meta e podem mudar; confira as condições atuais antes do
-envio.
+## Publicar no GitHub Pages
 
-## Limitações e privacidade
+1. Salve o arquivo fornecido como `index.html` na raiz do repositório.
+2. Envie o arquivo para a branch principal.
+3. No GitHub, abra **Settings → Pages**.
+4. Selecione a branch principal e a pasta `/ (root)`.
+5. Aguarde a publicação e abra o endereço gerado.
 
--   O frontend é uma aplicação estática; a publicação no GitHub Pages
-    não substitui o backend.
--   Os links individuais gerados pela versão atual usam ofuscação, não
-    criptografia. Portanto, quem tiver acesso ao link poderá recuperar o
-    resultado correspondente.
--   Evite compartilhar publicamente os links individuais.
--   O backend descrito no projeto encaminha os envios, mas não deve ser
-    considerado um sistema de armazenamento seguro dos resultados.
--   A confirmação de envio pela API indica que a solicitação foi aceita
-    pela plataforma; não garante que a mensagem foi lida pelo
-    destinatário.
+Depois, confirme que a origem exata do site está cadastrada no OAuth Client ID.
 
-## Tecnologias
+## Como realizar o sorteio e enviar
 
--   HTML
--   CSS
--   JavaScript
--   Node.js (backend opcional para envio automático)
--   WhatsApp Cloud API (integração opcional)
+1. Abra o site publicado no navegador.
+2. Cadastre uma pessoa por linha, neste formato:
 
-## Licença
+```text
+Nome, email, calça, blusa, calçado
+Maria, maria@gmail.com, 38, M, 35
+João, joao@hotmail.com, 42, G, 42
+Carla, carla@outlook.com, 40, P, 37
+```
 
-Defina aqui a licença do projeto caso pretenda permitir reutilização ou
-distribuição por outras pessoas.
+3. Preencha o nome do evento e os detalhes opcionais.
+4. Clique em **Sortear**.
+5. Informe o OAuth Client ID na área de envio.
+6. Clique em **Conectar Gmail** e escolha a conta Gmail do organizador.
+7. Autorize o envio de e-mails.
+8. Marque a confirmação de que os participantes concordaram em receber o resultado.
+9. Clique em **Enviar resultados por e-mail**.
+
+Cada pessoa receberá uma mensagem separada, sem os demais participantes em cópia. O destinatário pode usar Gmail, Outlook, Hotmail ou qualquer outro provedor de e-mail.
+
+## Custos e limites
+
+- GitHub Pages: hospedagem gratuita para repositórios compatíveis com o plano do GitHub.
+- Gmail API: o uso padrão da API está disponível sem custo adicional dentro das cotas publicadas pelo Google.
+- Não há cobrança da Meta, Firebase Blaze, Brevo ou Cloudflare nesta implementação.
+- Contas Gmail pessoais possuem limites diários de envio definidos pelo Google. O envio de 28 mensagens fica abaixo do limite usual de 500 mensagens por dia, desde que a conta não tenha consumido parte relevante dessa cota em outros envios.
+
+Consulte os limites atuais:
+- https://support.google.com/mail/answer/22839
+- https://developers.google.com/workspace/gmail/api/reference/quota
+
+## Segurança e privacidade
+
+- A senha do Gmail nunca é solicitada nem armazenada pelo site.
+- O token OAuth de acesso fica somente na memória da página e não é gravado no `localStorage`.
+- O Client ID OAuth não é um segredo.
+- A autorização solicitada usa apenas o escopo `gmail.send`.
+- Os dados do sorteio são salvos no `localStorage` do navegador do organizador.
+- Não compartilhe o computador ou o perfil do navegador usado para organizar o sorteio.
+- O organizador tem acesso aos dados locais do sorteio. Esta versão não oferece sigilo criptográfico dos pares contra o próprio organizador.
+- Se o navegador for fechado durante os envios, confira a pasta **Enviados** do Gmail antes de tentar novamente. Se uma mensagem tiver sido enviada, mas o navegador não tiver salvo o status, a nova tentativa poderá gerar duplicidade.
+- O status “Enviado” indica que a Gmail API aceitou a solicitação; não confirma que a mensagem chegou à caixa de entrada ou foi lida. Verifique também spam e endereço do destinatário.
+
+## Documentação oficial
+
+- Gmail API — enviar mensagens: https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/send
+- Quickstart JavaScript da Gmail API: https://developers.google.com/workspace/gmail/api/quickstart/js
+- Google Identity Services para Web: https://developers.google.com/identity/oauth2/web/guides/overview
+- Escopos da Gmail API: https://developers.google.com/workspace/gmail/api/auth/scopes
