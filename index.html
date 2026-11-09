@@ -94,7 +94,7 @@ ul.envios .marcar{padding:.5rem .8rem;font-size:.85rem;background:transparent;co
     <input id="titulo" value="Amigo Oculto 2026" maxlength="80">
     <label for="lista">Participantes: um por linha, no formato <em>Nome, e-mail, calça, blusa, sapato</em></label>
     <textarea id="lista" placeholder="Maria, maria@gmail.com, 38, M, 35&#10;João, joao@hotmail.com, 42, G, 42&#10;Carla, carla@outlook.com, 40, P, 37"></textarea>
-    <p class="suave">E-mail, calça, blusa e sapato são obrigatórios. Informe os três tamanhos nesta ordem, separados por vírgula. São aceitos Gmail, Hotmail, Outlook e outros provedores.</p>
+    <p class="suave">E-mail e os três campos de tamanho devem ser preenchidos. Use - quando a pessoa não quiser receber aquele tipo de presente. E-mails repetidos são permitidos para casais que compartilham a mesma caixa de entrada.</p>
     <label for="evento">Detalhes do evento (opcional)</label>
     <input id="evento" maxlength="200" placeholder="Ex.: dia 20/12, valor até R$ 100">
     <div class="acoes"><button id="sortear">Sortear</button></div>
@@ -189,7 +189,7 @@ function chaveNome(nome){
 }
 
 function lerLista(texto){
-  const pessoas = [], erros = [], nomesVistos = new Set(), emailsVistos = new Set();
+  const pessoas = [], erros = [], nomesVistos = new Set();
   texto.split(/\r?\n/).forEach((linha, i) => {
     if (!linha.trim()) return;
     const partes = linha.split(",").map(x => x.trim());
@@ -201,7 +201,7 @@ function lerLista(texto){
     }
     const valoresTamanho = partes.slice(2, 5);
     if (valoresTamanho.some(t => !t)) {
-      erros.push(`Linha ${i + 1}: os tamanhos de calça, blusa e sapato são obrigatórios.`);
+      erros.push(`Linha ${i + 1}: preencha os três campos de tamanho. Use - quando a pessoa não quiser receber aquele tipo de presente.`);
       return;
     }
     const tamanhos = [
@@ -214,13 +214,8 @@ function lerLista(texto){
       return;
     }
     const idNome = chaveNome(nome);
-    const idEmail = email.toLocaleLowerCase("pt-BR");
     if (nomesVistos.has(idNome)) {
       erros.push(`Linha ${i + 1}: “${nome}” aparece mais de uma vez.`);
-      return;
-    }
-    if (emailsVistos.has(idEmail)) {
-      erros.push(`Linha ${i + 1}: o e-mail “${email}” já foi informado para outro participante.`);
       return;
     }
     if (tamanhos.some(t => t.length > 120)) {
@@ -228,7 +223,6 @@ function lerLista(texto){
       return;
     }
     nomesVistos.add(idNome);
-    emailsVistos.add(idEmail);
     pessoas.push({ nome, email, tamanhos });
   });
   if (!erros.length && pessoas.length < 3) erros.push("O sorteio precisa de pelo menos 3 participantes.");
