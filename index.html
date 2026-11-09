@@ -44,8 +44,12 @@ button.secundario{background:transparent;color:var(--tinta);border:1.5px solid v
 .erro{color:var(--fita);font-weight:600;margin-top:.75rem}
 .aviso{border-left:4px solid var(--ouro);padding:.5rem .9rem;margin:1rem 0;background:var(--campo);border-radius:0 8px 8px 0}
 ul.envios{list-style:none;padding:0;margin:1rem 0}
-ul.envios li{display:flex;align-items:center;justify-content:space-between;gap:1rem;
+ul.envios li{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;
   padding:.8rem 0;border-bottom:1px solid var(--linha)}
+ul.envios .participante-info{display:flex;flex-direction:column;gap:.15rem;min-width:12rem;flex:1}
+ul.envios .envio-acoes{display:flex;align-items:center;justify-content:flex-end;gap:.5rem;flex-wrap:wrap}
+ul.envios .whatsapp{padding:.55rem 1rem;font-size:.9rem;background:#168653;color:#fff}
+ul.envios .status-envio{font-size:.85rem;color:var(--suave)}
 ul.envios li.enviado .nome{text-decoration:line-through;color:var(--suave)}
 ul.envios .botao{padding:.55rem 1rem;font-size:.95rem;background:var(--pinho);color:var(--papel)}
 ul.envios .marcar{padding:.5rem .8rem;font-size:.85rem;background:transparent;color:var(--tinta);border:1px solid var(--linha)}
@@ -99,7 +103,7 @@ ul.envios .marcar{padding:.5rem .8rem;font-size:.85rem;background:transparent;co
 
   <div id="etapaEnvio" hidden>
     <h2>Sorteio realizado</h2>
-    <p class="suave">Cada participante receberá um e-mail individual com o nome da pessoa sorteada e os respectivos tamanhos.</p>
+    <p class="suave">Cada participante receberá um e-mail individual com o nome da pessoa sorteada e os respectivos tamanhos. Se alguém não receber, você poderá enviar o link individual pelo WhatsApp.</p>
     <p id="resumoEnvios" class="aviso" aria-live="polite"></p>
     <div class="aviso">
       <strong>Envio automático pelo Gmail</strong>
@@ -118,6 +122,8 @@ ul.envios .marcar{padding:.5rem .8rem;font-size:.85rem;background:transparent;co
       <p id="resultadoApi" role="status" aria-live="polite"></p>
     </div>
     <div class="aviso">Cada mensagem é enviada separadamente. O token de acesso fica somente na memória desta página e não é salvo no navegador. O envio exige autorização do organizador no Google.</div>
+    <h2>Entrega dos resultados</h2>
+    <p class="suave">Acompanhe o status dos e-mails. Se necessário, use o botão do WhatsApp para compartilhar o link particular de cada participante.</p>
     <ul id="envios" class="envios"></ul>
     <div class="acoes"><button id="refazer" class="secundario">Refazer sorteio</button></div>
   </div>
@@ -292,14 +298,28 @@ if (typeof document !== "undefined") {
       const ul = $("envios"); ul.innerHTML = "";
       estado.pares.forEach((par, i) => {
         const li = document.createElement("li");
-        const n = document.createElement("span"); n.className = "nome";
+        const info = document.createElement("div"); info.className = "participante-info";
+        const n = document.createElement("strong"); n.className = "nome";
         n.textContent = `${par.de.nome} (${par.de.email})`;
         const status = document.createElement("span"); status.className = "status-envio";
         const r = estado.resultadosEnvio[i];
-        status.textContent = r.status === "enviado" ? "Enviado" :
-          r.status === "falhou" ? `Falhou: ${r.error || "erro"}` : "Pendente";
+        status.textContent = r.status === "enviado" ? "E-mail enviado" :
+          r.status === "falhou" ? `Falha no e-mail: ${r.error || "erro"}` : "E-mail pendente";
         if (r.status === "enviado") li.classList.add("enviado");
-        li.append(n, status); ul.append(li);
+        info.append(n, status);
+
+        const acoes = document.createElement("div"); acoes.className = "envio-acoes";
+        const whatsapp = document.createElement("button");
+        whatsapp.type = "button"; whatsapp.className = "whatsapp";
+        whatsapp.textContent = "Enviar link pelo WhatsApp";
+        whatsapp.addEventListener("click", () => {
+          const link = linkEnvelope(par, base, estado.evento, estado.titulo);
+          const texto = `Oi, ${par.de.nome}! Caso não tenha recebido o e-mail do Amigo Oculto, aqui está seu link individual para conferir o resultado:\n\n${link}\n\nNão compartilhe esse link com outras pessoas 😉`;
+          const url = "https://wa.me/?text=" + encodeURIComponent(texto);
+          window.open(url, "_blank", "noopener,noreferrer");
+        });
+        acoes.append(whatsapp);
+        li.append(info, acoes); ul.append(li);
       });
       atualizarResumo(estado);
       $("etapaCadastro").hidden = true; $("etapaEnvio").hidden = false;
@@ -346,23 +366,66 @@ if (typeof document !== "undefined") {
       return btoa(binario);
     }
 
+    function escaparHtml(valor){
+      return String(valor ?? "").replace(/[&<>"']/g, caractere => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      })[caractere]);
+    }
+
+    function base64Linhas(texto){
+      const codificado = base64Utf8(texto);
+      return codificado.match(/.{1,76}/g)?.join("\r\n") || codificado;
+    }
+
     function montarMensagem(par, estado){
-      const assunto = "Seu resultado do Amigo Oculto";
-      const corpo =
+      const assunto = "🎁 Seu resultado do Amigo Oculto!";
+      const nome = escaparHtml(par.de.nome);
+      const pessoaSorteada = escaparHtml(par.para.nome);
+      const tamanhos = par.para.tamanhos || [];
+      const labels = ["Calça", "Blusa", "Calçado"];
+      const linhasTamanhos = tamanhos.map((t, i) =>
+        `<tr><td style="padding:11px 14px;border-bottom:1px solid #e7eee9;color:#52665a">${labels[i] || `Tamanho ${i + 1}`}</td><td style="padding:11px 14px;border-bottom:1px solid #e7eee9;text-align:right;font-weight:700;color:#183d2d">${escaparHtml(t)}</td></tr>`
+      ).join("");
+      const evento = estado.evento ? `<div style="margin-top:20px;padding:13px 15px;background:#f5f7f4;border-radius:10px;color:#52665a;font-size:14px"><strong>Detalhes do evento:</strong><br>${escaparHtml(estado.evento)}</div>` : "";
+      const texto =
         `Olá, ${par.de.nome}!\n\n` +
-        `O sorteio de ${estado.titulo || "Amigo Oculto"} foi realizado. Você tirou:\n\n` +
-        `${par.para.nome}\n\n` +
-        `Tamanhos:\n${(par.para.tamanhos || []).join("\n")}\n\n` +
+        `O sorteio de ${estado.titulo || "Amigo Oculto"} foi realizado. Você tirou: ${par.para.nome}!\n\n` +
+        `Tamanhos:\n${labels.map((label, i) => tamanhos[i] !== undefined ? `${label}: ${tamanhos[i]}` : null).filter(Boolean).join("\n")}\n\n` +
         (estado.evento ? `Detalhes do evento: ${estado.evento}\n\n` : "") +
-        `Guarde essa informação em segredo e prepare seu presente!\n\n` +
-        `Boa diversão!`;
+        `Guarde essa informação em segredo e prepare seu presente!\n\nBoa diversão!`;
+      const html = `<!doctype html><html lang="pt-BR"><body style="margin:0;padding:28px 12px;background:#f1f5f2;font-family:Arial,Helvetica,sans-serif;color:#20372b">
+        <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #e1e9e3">
+          <div style="padding:28px 24px;text-align:center;background:#1e4636;color:#ffffff">
+            <div style="font-size:34px;line-height:1.2">🎁</div>
+            <div style="margin-top:8px;font-size:25px;font-weight:700">${escaparHtml(estado.titulo || "Amigo Oculto")}</div>
+            <div style="margin-top:7px;font-size:14px;color:#dcebe1">Seu resultado chegou!</div>
+          </div>
+          <div style="padding:28px 24px">
+            <p style="margin:0 0 8px;font-size:16px">Olá, <strong>${nome}</strong>!</p>
+            <p style="margin:0 0 20px;color:#52665a;line-height:1.6">O sorteio foi realizado. Sua missão é guardar esse segredo:</p>
+            <div style="padding:22px 16px;text-align:center;background:#f1f6f2;border:1px solid #dce9df;border-radius:14px">
+              <div style="font-size:13px;text-transform:uppercase;letter-spacing:1.5px;color:#52665a">Você tirou</div>
+              <div style="margin-top:8px;font-size:30px;line-height:1.2;font-weight:700;color:#1e6848;overflow-wrap:anywhere">${pessoaSorteada}</div>
+            </div>
+            <h2 style="margin:26px 0 10px;font-size:17px;color:#20372b">📏 Tamanhos para o presente</h2>
+            <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border:1px solid #e7eee9;border-radius:10px;border-collapse:separate;border-spacing:0;overflow:hidden">
+              ${linhasTamanhos}
+            </table>
+            ${evento}
+            <p style="margin:25px 0 0;text-align:center;font-weight:700;color:#1e4636">Não conte para ninguém! 🤫</p>
+            <p style="margin:8px 0 0;text-align:center;color:#718176;font-size:13px">Prepare seu presente e boa diversão!</p>
+          </div>
+        </div>
+      </body></html>`;
+      const boundary = "amigo_oculto_" + (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, "") : Date.now());
       const mime =
         `To: ${par.de.email}\r\n` +
-        `Subject: ${assunto}\r\n` +
+        `Subject: =?UTF-8?B?${base64Utf8(assunto)}?=\r\n` +
         `MIME-Version: 1.0\r\n` +
-        `Content-Type: text/plain; charset=UTF-8\r\n` +
-        `Content-Transfer-Encoding: base64\r\n\r\n` +
-        base64Utf8(corpo);
+        `Content-Type: multipart/alternative; boundary="${boundary}"\r\n\r\n` +
+        `--${boundary}\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64Linhas(texto)}\r\n` +
+        `--${boundary}\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64Linhas(html)}\r\n` +
+        `--${boundary}--`;
       return base64Utf8(mime).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
     }
 
