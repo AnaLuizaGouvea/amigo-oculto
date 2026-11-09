@@ -1,4 +1,4 @@
-# Amigo Oculto — envio automático pelo Gmail
+# Secret Santa — envio automático pelo Gmail
 
 Aplicação estática para realizar o sorteio de amigo oculto e enviar um e-mail individual a cada participante usando a conta Gmail do organizador.
 
