@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 :root{
   --pinho:#1E4636; --papel:#EEF3EE; --tinta:#16261E; --suave:#55685D;
@@ -77,7 +78,7 @@ ul.envios .marcar{padding:.5rem .8rem;font-size:.85rem;background:transparent;co
 <!-- ===== MODO ORGANIZADOR ===== -->
 <section id="organizador" hidden>
   <h1>Amigo oculto</h1>
-  <p class="suave">Você envia os links pelo WhatsApp, mas não vê quem tirou quem. Cada pessoa abre o próprio envelope.</p>
+  <p class="suave">Cadastre os participantes, realize o sorteio e envie por Gmail um e-mail individual com o nome e os tamanhos da pessoa sorteada.</p>
 
   <div id="avisoArquivo" class="aviso" hidden>
     Esta página está aberta como arquivo local. Para os links funcionarem no celular dos participantes,
@@ -87,9 +88,9 @@ ul.envios .marcar{padding:.5rem .8rem;font-size:.85rem;background:transparent;co
   <div id="etapaCadastro">
     <label for="titulo">Nome do evento</label>
     <input id="titulo" value="Amigo Oculto 2026" maxlength="80">
-    <label for="lista">Participantes: um por linha, no formato <em>Nome, telefone, calça, blusa, sapato</em></label>
-    <textarea id="lista" placeholder="Maria, (11) 98765-4321, 38, M, 35&#10;João, 11 91234-5678, 42, G, 42&#10;Carla, +55 21 99876-5432, 40, P, 37"></textarea>
-    <p class="suave">Calça, blusa e sapato são obrigatórios. Informe os três tamanhos, nesta ordem, separados por vírgula.</p>
+    <label for="lista">Participantes: um por linha, no formato <em>Nome, e-mail, calça, blusa, sapato</em></label>
+    <textarea id="lista" placeholder="Maria, maria@gmail.com, 38, M, 35&#10;João, joao@hotmail.com, 42, G, 42&#10;Carla, carla@outlook.com, 40, P, 37"></textarea>
+    <p class="suave">E-mail, calça, blusa e sapato são obrigatórios. Informe os três tamanhos nesta ordem, separados por vírgula. São aceitos Gmail, Hotmail, Outlook e outros provedores.</p>
     <label for="evento">Detalhes do evento (opcional)</label>
     <input id="evento" maxlength="200" placeholder="Ex.: dia 20/12, valor até R$ 100">
     <div class="acoes"><button id="sortear">Sortear</button></div>
@@ -97,23 +98,26 @@ ul.envios .marcar{padding:.5rem .8rem;font-size:.85rem;background:transparent;co
   </div>
 
   <div id="etapaEnvio" hidden>
-    <h2>Sorteio feito. Envie para cada pessoa</h2>
-    <p class="suave">Você pode enviar manualmente pelo WhatsApp ou configurar o envio automático pela API oficial.</p>
+    <h2>Sorteio realizado</h2>
+    <p class="suave">Cada participante receberá um e-mail individual com o nome da pessoa sorteada e os respectivos tamanhos.</p>
     <p id="resumoEnvios" class="aviso" aria-live="polite"></p>
     <div class="aviso">
-      <strong>Envio automático pela WhatsApp Cloud API</strong>
-      <label for="apiUrl">URL do backend</label>
-      <input id="apiUrl" type="url" placeholder="https://seu-backend.onrender.com" autocomplete="url">
-      <label for="apiKey">Chave administrativa do backend</label>
-      <input id="apiKey" type="password" placeholder="Informe a chave configurada no servidor" autocomplete="off">
+      <strong>Envio automático pelo Gmail</strong>
+      <p>Informe o ID do cliente OAuth criado no Google Cloud. Na primeira utilização, o organizador autorizará o envio pela própria conta Gmail.</p>
+      <label for="googleClientId">ID do cliente OAuth (aplicativo da Web)</label>
+      <input id="googleClientId" type="text" placeholder="000000000000-xxxxxxxx.apps.googleusercontent.com" autocomplete="off">
+      <p class="suave">O ID do cliente é público e pode ficar no navegador. Não informe senha, token ou client secret aqui.</p>
       <label style="display:flex;gap:.55rem;align-items:flex-start;font-weight:400;margin-top:1rem">
         <input id="consentimento" type="checkbox" style="width:auto;margin-top:.25rem">
-        <span>Confirmo que todos os participantes forneceram seus números e autorizaram receber esta mensagem pelo WhatsApp.</span>
+        <span>Confirmo que os participantes forneceram seus endereços de e-mail e concordaram em receber o resultado do sorteio.</span>
       </label>
-      <div class="acoes"><button id="enviarAutomatico" type="button">Enviar automaticamente</button></div>
+      <div class="acoes">
+        <button id="conectarGmail" type="button" class="secundario">Conectar Gmail</button>
+        <button id="enviarAutomatico" type="button" disabled>Enviar resultados por e-mail</button>
+      </div>
       <p id="resultadoApi" role="status" aria-live="polite"></p>
     </div>
-    <div class="aviso">Atenção: os links atuais contêm o resultado codificado, mas não criptografado. Quem tiver acesso ao link poderá descobrir o resultado. O envio automático exige um modelo de mensagem aprovado pela Meta e um backend configurado.</div>
+    <div class="aviso">Cada mensagem é enviada separadamente. O token de acesso fica somente na memória desta página e não é salvo no navegador. O envio exige autorização do organizador no Google.</div>
     <ul id="envios" class="envios"></ul>
     <div class="acoes"><button id="refazer" class="secundario">Refazer sorteio</button></div>
   </div>
@@ -133,7 +137,7 @@ ul.envios .marcar{padding:.5rem .8rem;font-size:.85rem;background:transparent;co
       <ul id="tamanhos"></ul>
     </div>
     <p id="detalhes" class="suave"></p>
-    <p>Não conte para ninguém! 🤫</p>
+    <p>Não conte para ninguém!</p>
   </div>
 </section>
 
@@ -169,17 +173,8 @@ function sortear(pessoas){
   return pessoas.map((p, i) => ({ de: p, para: embaralhadas[i] }));
 }
 
-function normalizarTelefone(t){
-  const original = String(t).trim();
-  // Aceita apenas dígitos e separadores comuns; '+' só pode aparecer no início.
-  if (!original || !/^\+?[\d\s().-]+$/.test(original)) return null;
-  const internacional = original.startsWith("+");
-  let d = original.replace(/\D/g, "");
-  if (!internacional) {
-    d = d.replace(/^0+/, "");
-    if (d.length === 10 || d.length === 11) d = "55" + d; // número brasileiro sem DDI
-  }
-  return d.length >= 11 && d.length <= 15 ? d : null;
+function emailValido(email){
+  return /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(String(email).trim());
 }
 
 function chaveNome(nome){
@@ -188,14 +183,14 @@ function chaveNome(nome){
 }
 
 function lerLista(texto){
-  const pessoas = [], erros = [], nomesVistos = new Set(), telefonesVistos = new Set();
+  const pessoas = [], erros = [], nomesVistos = new Set(), emailsVistos = new Set();
   texto.split(/\r?\n/).forEach((linha, i) => {
     if (!linha.trim()) return;
     const partes = linha.split(",").map(x => x.trim());
     const nome = partes[0] || "";
-    const tel = partes.length < 2 ? null : normalizarTelefone(partes[1]);
+    const email = partes[1] || "";
     if (partes.length !== 5) {
-      erros.push(`Linha ${i + 1}: informe exatamente 5 campos: nome, telefone, tamanho da calça, tamanho da blusa e tamanho do sapato.`);
+      erros.push(`Linha ${i + 1}: informe exatamente 5 campos: nome, e-mail, tamanho da calça, tamanho da blusa e tamanho do sapato.`);
       return;
     }
     const valoresTamanho = partes.slice(2, 5);
@@ -206,19 +201,20 @@ function lerLista(texto){
     const tamanhos = [
       `Calça: ${valoresTamanho[0]}`,
       `Blusa: ${valoresTamanho[1]}`,
-      `Sapato: ${valoresTamanho[2]}`
+      `Calçado: ${valoresTamanho[2]}`
     ];
-    if (!nome || nome.length > 80 || !tel) {
-      erros.push(`Linha ${i + 1}: informe um nome (até 80 caracteres) e um telefone válido com DDD.`);
+    if (!nome || nome.length > 80 || !emailValido(email)) {
+      erros.push(`Linha ${i + 1}: informe um nome (até 80 caracteres) e um e-mail válido.`);
       return;
     }
     const idNome = chaveNome(nome);
+    const idEmail = email.toLocaleLowerCase("pt-BR");
     if (nomesVistos.has(idNome)) {
       erros.push(`Linha ${i + 1}: “${nome}” aparece mais de uma vez.`);
       return;
     }
-    if (telefonesVistos.has(tel)) {
-      erros.push(`Linha ${i + 1}: o telefone de “${nome}” já foi informado para outro participante.`);
+    if (emailsVistos.has(idEmail)) {
+      erros.push(`Linha ${i + 1}: o e-mail “${email}” já foi informado para outro participante.`);
       return;
     }
     if (tamanhos.some(t => t.length > 120)) {
@@ -226,8 +222,8 @@ function lerLista(texto){
       return;
     }
     nomesVistos.add(idNome);
-    telefonesVistos.add(tel);
-    pessoas.push({ nome, tel, tamanhos });
+    emailsVistos.add(idEmail);
+    pessoas.push({ nome, email, tamanhos });
   });
   if (!erros.length && pessoas.length < 3) erros.push("O sorteio precisa de pelo menos 3 participantes.");
   return { pessoas, erros };
@@ -251,20 +247,9 @@ function linkEnvelope(par, base, evento, titulo){
                                  tam: par.para.tamanhos || [], ev: evento || "" });
 }
 
-function linkWhatsApp(par, base, evento, titulo){
-  const url = linkEnvelope(par, base, evento, titulo);
-  // Mensagem sem emojis para evitar caracteres de substituição (�) em alguns
-  // aparelhos, navegadores ou versões do WhatsApp. O texto continua em UTF-8.
-  const msg = `AMIGO OCULTO | ${titulo || "Amigo Oculto"}\n\n` +
-              `Olá, ${par.de.nome}!\n\n` +
-              `O sorteio foi realizado. Para descobrir quem você tirou, acesse seu envelope pelo link abaixo:\n\n` +
-              `${url}\n\n` +
-              `Importante: não compartilhe este link, pois ele contém o resultado do seu sorteio.\n\n` +
-              `Boa diversão!`;
-  return `https://wa.me/${par.de.tel}?text=${encodeURIComponent(msg)}`;
-}
 
-if (typeof module !== "undefined") { module.exports = { sortear, normalizarTelefone, lerLista, codificar, decodificar, linkWhatsApp }; }
+
+if (typeof module !== "undefined") { module.exports = { sortear, lerLista, emailValido, codificar, decodificar }; }
 
 /* ---------- interface ---------- */
 if (typeof document !== "undefined") {
@@ -293,35 +278,28 @@ if (typeof document !== "undefined") {
     const salvar = v => { try { localStorage.setItem("ao-sorteio", JSON.stringify(v)); return true; } catch { return false; } };
     const carregar = () => { try { return JSON.parse(localStorage.getItem("ao-sorteio")); } catch { return null; } };
 
+    let gmailAccessToken = null;
+    try { $("googleClientId").value = localStorage.getItem("google-client-id") || ""; } catch {}
+    $("googleClientId").addEventListener("change", () => {
+      try { localStorage.setItem("google-client-id", $("googleClientId").value.trim()); } catch {}
+    });
+
     function mostrarEnvios(estado){
-      // Compatibilidade com sorteios salvos por versões anteriores.
-      if (!Array.isArray(estado.enviados)) estado.enviados = [];
-      estado.pares.forEach((_, i) => { estado.enviados[i] = Boolean(estado.enviados[i]); });
+      if (!Array.isArray(estado.resultadosEnvio)) estado.resultadosEnvio = [];
+      estado.pares.forEach((_, i) => {
+        if (!estado.resultadosEnvio[i]) estado.resultadosEnvio[i] = { status: "pendente" };
+      });
       const ul = $("envios"); ul.innerHTML = "";
       estado.pares.forEach((par, i) => {
         const li = document.createElement("li");
-        if (estado.enviados[i]) li.classList.add("enviado");
-        const n = document.createElement("span"); n.className = "nome"; n.textContent = par.de.nome;
-        const acoes = document.createElement("div"); acoes.className = "envio-acoes";
+        const n = document.createElement("span"); n.className = "nome";
+        n.textContent = `${par.de.nome} (${par.de.email})`;
         const status = document.createElement("span"); status.className = "status-envio";
-        status.textContent = estado.enviados[i] ? "Concluído" : "Pendente";
-        const a = document.createElement("a"); a.className = "botao"; a.target = "_blank"; a.rel = "noopener noreferrer";
-        a.href = linkWhatsApp(par, base, estado.evento, estado.titulo);
-        a.textContent = "Abrir WhatsApp";
-        const marcar = document.createElement("button"); marcar.type = "button"; marcar.className = "marcar";
-        marcar.textContent = estado.enviados[i] ? "Desmarcar" : "Marcar como enviado";
-        marcar.setAttribute("aria-pressed", String(estado.enviados[i]));
-        marcar.onclick = () => {
-          estado.enviados[i] = !estado.enviados[i];
-          salvar(estado);
-          li.classList.toggle("enviado", estado.enviados[i]);
-          status.textContent = estado.enviados[i] ? "Concluído" : "Pendente";
-          marcar.textContent = estado.enviados[i] ? "Desmarcar" : "Marcar como enviado";
-          marcar.setAttribute("aria-pressed", String(estado.enviados[i]));
-          atualizarResumo(estado);
-        };
-        acoes.append(status, a, marcar);
-        li.append(n, acoes); ul.append(li);
+        const r = estado.resultadosEnvio[i];
+        status.textContent = r.status === "enviado" ? "Enviado" :
+          r.status === "falhou" ? `Falhou: ${r.error || "erro"}` : "Pendente";
+        if (r.status === "enviado") li.classList.add("enviado");
+        li.append(n, status); ul.append(li);
       });
       atualizarResumo(estado);
       $("etapaCadastro").hidden = true; $("etapaEnvio").hidden = false;
@@ -329,14 +307,101 @@ if (typeof document !== "undefined") {
 
     function atualizarResumo(estado){
       const total = estado.pares.length;
-      const concluidos = estado.enviados.filter(Boolean).length;
-      $("resumoEnvios").textContent = `${concluidos} de ${total} mensagens marcadas como enviadas manualmente.`;
+      const enviados = (estado.resultadosEnvio || []).filter(r => r && r.status === "enviado").length;
+      $("resumoEnvios").textContent = `${enviados} de ${total} e-mails enviados.`;
     }
+
+    function obterTokenGmail(){
+      return new Promise((resolve, reject) => {
+        if (!window.google || !google.accounts || !google.accounts.oauth2) {
+          reject(new Error("Não foi possível carregar a autenticação do Google. Verifique sua conexão e recarregue a página."));
+          return;
+        }
+        const clientId = $("googleClientId").value.trim();
+        if (!clientId.endsWith(".apps.googleusercontent.com")) {
+          reject(new Error("Informe um ID de cliente OAuth válido, criado como aplicativo da Web no Google Cloud."));
+          return;
+        }
+        const tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: clientId,
+          scope: "https://www.googleapis.com/auth/gmail.send",
+          callback: (response) => {
+            if (response.error) {
+              reject(new Error(response.error_description || response.error));
+              return;
+            }
+            gmailAccessToken = response.access_token;
+            resolve(response.access_token);
+          },
+          error_callback: (error) => reject(new Error(error.message || "A autorização do Google foi cancelada ou bloqueada."))
+        });
+        tokenClient.requestAccessToken({ prompt: "select_account" });
+      });
+    }
+
+    function base64Utf8(texto){
+      const bytes = new TextEncoder().encode(texto);
+      let binario = "";
+      for (let i = 0; i < bytes.length; i++) binario += String.fromCharCode(bytes[i]);
+      return btoa(binario);
+    }
+
+    function montarMensagem(par, estado){
+      const assunto = "Seu resultado do Amigo Oculto";
+      const corpo =
+        `Olá, ${par.de.nome}!\n\n` +
+        `O sorteio de ${estado.titulo || "Amigo Oculto"} foi realizado. Você tirou:\n\n` +
+        `${par.para.nome}\n\n` +
+        `Tamanhos:\n${(par.para.tamanhos || []).join("\n")}\n\n` +
+        (estado.evento ? `Detalhes do evento: ${estado.evento}\n\n` : "") +
+        `Guarde essa informação em segredo e prepare seu presente!\n\n` +
+        `Boa diversão!`;
+      const mime =
+        `To: ${par.de.email}\r\n` +
+        `Subject: ${assunto}\r\n` +
+        `MIME-Version: 1.0\r\n` +
+        `Content-Type: text/plain; charset=UTF-8\r\n` +
+        `Content-Transfer-Encoding: base64\r\n\r\n` +
+        base64Utf8(corpo);
+      return base64Utf8(mime).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+    }
+
+    async function enviarUmEmail(par, estado, token){
+      const raw = montarMensagem(par, estado);
+      const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ raw })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const mensagem = data.error && data.error.message ? data.error.message : `Erro HTTP ${response.status}`;
+        throw new Error(mensagem);
+      }
+      return data.id;
+    }
+
+    $("conectarGmail").onclick = async () => {
+      const botao = $("conectarGmail");
+      const resultado = $("resultadoApi");
+      resultado.textContent = "Aguardando autorização do Google...";
+      botao.disabled = true;
+      try {
+        await obterTokenGmail();
+        $("enviarAutomatico").disabled = false;
+        resultado.textContent = "Gmail conectado. Você já pode enviar os resultados.";
+      } catch (error) {
+        resultado.textContent = `Não foi possível conectar ao Gmail: ${error.message}`;
+      } finally {
+        botao.disabled = false;
+      }
+    };
 
     $("enviarAutomatico").onclick = async () => {
       const estado = carregar();
-      const apiUrl = $("apiUrl").value.trim().replace(/\/$/, "");
-      const apiKey = $("apiKey").value;
       const resultado = $("resultadoApi");
       const botao = $("enviarAutomatico");
       resultado.textContent = "";
@@ -344,47 +409,47 @@ if (typeof document !== "undefined") {
         resultado.textContent = "Não encontrei um sorteio salvo neste navegador.";
         return;
       }
-      if (!/^https:\/\//i.test(apiUrl)) {
-        resultado.textContent = "Informe a URL HTTPS do backend.";
-        return;
-      }
-      if (!apiKey) {
-        resultado.textContent = "Informe a chave administrativa configurada no backend.";
-        return;
-      }
       if (!$("consentimento").checked) {
-        resultado.textContent = "É necessário confirmar a autorização de todos os participantes.";
+        resultado.textContent = "Confirme que os participantes autorizaram o recebimento do e-mail.";
         return;
       }
-      if (!confirm(`Enviar ${estado.pares.length} mensagens pelo WhatsApp? Cada participante receberá somente o próprio link.`)) return;
+      if (!gmailAccessToken) {
+        resultado.textContent = "Conecte a conta Gmail antes de enviar.";
+        return;
+      }
+      const pendentes = estado.pares
+        .map((par, i) => ({ par, i }))
+        .filter(({ i }) => !estado.resultadosEnvio?.[i] || estado.resultadosEnvio[i].status !== "enviado");
+      if (!pendentes.length) {
+        resultado.textContent = "Todos os e-mails já foram enviados.";
+        return;
+      }
+      if (!confirm(`Enviar ${pendentes.length} e-mails individuais pela conta Gmail conectada?`)) return;
 
       botao.disabled = true;
-      botao.textContent = "Enviando...";
-      resultado.textContent = "Solicitando os envios. Não feche esta página.";
+      $("conectarGmail").disabled = true;
+      resultado.textContent = "Iniciando os envios. Não feche esta página.";
+      let enviadosAgora = 0;
+      let falhasAgora = 0;
       try {
-        const participantes = estado.pares.map(par => ({
-          name: par.de.nome,
-          phone: par.de.tel,
-          eventTitle: estado.titulo || "Amigo Oculto",
-          link: linkEnvelope(par, base, estado.evento, estado.titulo)
-        }));
-        const response = await fetch(`${apiUrl}/api/send-draw`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Admin-Key": apiKey },
-          body: JSON.stringify({ confirmedConsent: true, participants: participantes })
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.error || `Falha HTTP ${response.status}`);
-        resultado.textContent = `Processo concluído: ${data.sent} de ${data.total} mensagens aceitas pela API; ${data.failed} falharam. A aceitação pela API não confirma leitura pelo participante.`;
-        if (Array.isArray(data.results)) {
-          const falhas = data.results.filter(r => !r.sent);
-          if (falhas.length) resultado.textContent += " Falhas: " + falhas.map(r => `${r.name}: ${r.error}`).join(" | ");
+        for (const item of pendentes) {
+          const { par, i } = item;
+          resultado.textContent = `Enviando ${i + 1} de ${estado.pares.length}: ${par.de.nome}...`;
+          try {
+            await enviarUmEmail(par, estado, gmailAccessToken);
+            estado.resultadosEnvio[i] = { status: "enviado", enviadoEm: new Date().toISOString() };
+            enviadosAgora++;
+          } catch (error) {
+            estado.resultadosEnvio[i] = { status: "falhou", error: error.message };
+            falhasAgora++;
+          }
+          salvar(estado);
+          mostrarEnvios(estado);
         }
-      } catch (error) {
-        resultado.textContent = `Não foi possível concluir o envio: ${error.message}`;
+        resultado.textContent = `Envio finalizado: ${enviadosAgora} enviados nesta tentativa e ${falhasAgora} com erro. Você pode tentar novamente os que falharam.`;
       } finally {
         botao.disabled = false;
-        botao.textContent = "Enviar automaticamente";
+        $("conectarGmail").disabled = false;
       }
     };
 
@@ -402,7 +467,7 @@ if (typeof document !== "undefined") {
         $("erro").textContent = "Antes de sortear, publique esta página na web (GitHub Pages ou Netlify) para gerar links que os participantes consigam abrir.";
         return;
       }
-      const estado = { formatoTamanhos: 2, pares: sortear(pessoas), titulo, evento, enviados: [], lista: $("lista").value };
+      const estado = { formatoTamanhos: 3, pares: sortear(pessoas), titulo, evento, resultadosEnvio: [], lista: $("lista").value };
       if (!salvar(estado)) {
         $("erro").textContent = "Não foi possível salvar o sorteio neste navegador. Verifique as configurações de armazenamento.";
         return;
@@ -411,7 +476,7 @@ if (typeof document !== "undefined") {
     };
 
     $("refazer").onclick = () => {
-      if (!confirm("Refazer o sorteio? Atenção: os links gerados anteriormente continuarão funcionando e revelarão o resultado antigo. Sem um backend, não é possível invalidá-los. Deseja continuar?")) return;
+      if (!confirm("Refazer o sorteio? Os e-mails já enviados não podem ser recolhidos, e os participantes continuarão sabendo o resultado antigo. Um novo sorteio poderá enviar novos resultados. Deseja continuar?")) return;
       const anterior = carregar();
       try { localStorage.removeItem("ao-sorteio"); } catch {}
       if (anterior) { $("lista").value = anterior.lista || ""; $("evento").value = anterior.evento || ""; $("titulo").value = anterior.titulo || $("titulo").value; }
@@ -420,7 +485,7 @@ if (typeof document !== "undefined") {
 
     const salvo = carregar();
     if (salvo && Array.isArray(salvo.pares) && salvo.pares.length >= 3) {
-      if (salvo.formatoTamanhos === 2) {
+      if (salvo.formatoTamanhos === 3) {
         mostrarEnvios(salvo);
       } else {
         // Sorteios de versões anteriores podem não ter os três tamanhos obrigatórios.
@@ -428,7 +493,7 @@ if (typeof document !== "undefined") {
         $("lista").value = salvo.lista || "";
         $("titulo").value = salvo.titulo || $("titulo").value;
         $("evento").value = salvo.evento || "";
-        $("erro").textContent = "Seu sorteio salvo foi criado em uma versão anterior. Confira a lista e informe, para cada participante, calça, blusa e sapato antes de realizar um novo sorteio.";
+        $("erro").textContent = "Seu sorteio salvo foi criado em uma versão anterior. Confira a lista e informe, para cada participante, e-mail, calça, blusa e sapato antes de realizar um novo sorteio.";
       }
     }
   }
