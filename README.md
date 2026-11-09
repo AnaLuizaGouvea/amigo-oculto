@@ -12,6 +12,8 @@ Aplicação estática para realizar o sorteio de amigo oculto e enviar um e-mail
 - Cada mensagem informa o nome sorteado e os três tamanhos da pessoa sorteada.
 - Acompanhamento de mensagens enviadas, pendentes e com falha.
 - Possibilidade de tentar novamente somente os envios que falharam.
+- Botão individual para abrir o WhatsApp com uma mensagem pronta e o link privado de cada participante, para envio manual em caso de falha ou não recebimento do e-mail.
+- E-mails em HTML com apresentação visual, destaque para o nome sorteado e tabela de tamanhos, além de uma versão em texto simples para clientes de e-mail que não exibem HTML.
 
 ## Estrutura
 
@@ -107,7 +109,13 @@ Carla, carla@outlook.com, 40, P, 37
 8. Marque a confirmação de que os participantes concordaram em receber o resultado.
 9. Clique em **Enviar resultados por e-mail**.
 
-Cada pessoa receberá uma mensagem separada, sem os demais participantes em cópia. O destinatário pode usar Gmail, Outlook, Hotmail ou qualquer outro provedor de e-mail.
+Cada pessoa receberá uma mensagem separada, sem os demais participantes em cópia. O e-mail tem versão HTML e alternativa em texto simples. O destinatário pode usar Gmail, Outlook, Hotmail ou qualquer outro provedor de e-mail.
+
+### Alternativa manual pelo WhatsApp
+
+Na lista **Entrega dos resultados**, cada participante terá o botão **Enviar link pelo WhatsApp**. Ao clicar, o navegador abrirá o WhatsApp com uma mensagem pronta e o link individual daquele participante. O organizador deve selecionar o contato correto e enviar manualmente. Não é necessário cadastrar telefone dos participantes.
+
+O link abre a página publicada diretamente no resultado individual. Envie-o somente ao participante correspondente e não o compartilhe em grupos. A codificação do conteúdo do link serve apenas para transportar os dados no endereço; não é criptografia nem proteção contra alguém que obtenha o link.
 
 ## Custos e limites
 
